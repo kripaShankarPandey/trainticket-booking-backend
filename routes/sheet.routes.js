@@ -1,0 +1,67 @@
+const express = require("express");
+const Router = express.Router();
+const SheetModel = require("../model/sheet.model");
+const sheetRouter = express.Router();
+
+//To insert 80 data in Database this function is created  and i will this function only one time so that only one time 80 Data should insert in database
+const generateData = async () => {
+  try {
+    const records = [];
+
+    for (let i = 1; i <= 80; i++) {
+      const sheet = {
+        isBooked: false,
+        sheetNumber: `A${i < 10 ? "0" + i : i}`,
+      };
+
+      records.push(sheet);
+    }
+
+    await SheetModel.insertMany(records);
+    console.log("Data created successfully!");
+  } catch (error) {
+    console.error("Error creating data:", error);
+  }
+};
+//Calling generate Data function only one time
+//generateData();
+
+//To get all Data from DB and show on UI
+sheetRouter.get("/allsheet", async (req, res) => {
+  try {
+    const alldata = await SheetModel.find();
+    console.log(alldata.length);
+    res.status(201).send(alldata);
+  } catch (e) {
+    res.status(400).send({ msg: e.messgae });
+  }
+});
+
+//  for booking tickets
+sheetRouter.post("/bookticket", async (req, res) => {
+  const numberOfTickets = req.body.numberOfTickets;
+
+  // Find available sheets
+  const availableSheets = await SheetModel.find({ isBooked: false }).limit(
+    numberOfTickets
+  );
+  // console.log(availableSheets, "aaa");
+  // Check if enough sheets are available
+  if (availableSheets.length < numberOfTickets) {
+    return res
+      .status(400)
+      .send({ message: "Not available. Not enough seats." });
+  }
+
+  // Book the tickets
+  const bookedSheets = availableSheets.map((sheet) => {
+    sheet.isBooked = true;
+    return sheet.save();
+  });
+
+  await Promise.all(bookedSheets);
+
+  console.log(bookedSheets, "booked Sheet");
+  return res.send({ tickets: bookedSheets });
+});
+module.exports = sheetRouter;
